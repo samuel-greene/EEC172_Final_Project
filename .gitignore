@@ -53,3 +53,14 @@ dkms.conf
 
 # debug information files
 *.dwo
+/.metadata/
+
+# key privacy
+*.key
+*.pem
+*.der
+/keys/
+
+# others
+/.jxbrowser.userdata/
+/RemoteSystemsTempFiles/
