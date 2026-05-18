@@ -64,3 +64,7 @@ dkms.conf
 # others
 /.jxbrowser.userdata/
 /RemoteSystemsTempFiles/
+/aws-rest-api-ssl-demo/.cproject
+/aws-rest-api-ssl-demo/.project
+/aws-rest-api-ssl-demo/.launches/
+/aws-rest-api-ssl-demo/utils/
