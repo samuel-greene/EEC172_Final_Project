@@ -646,7 +646,7 @@ int connectToAccessPoint() {
       return lRetVal;
     }
 
-    UART_PRINT("Device is configured in default state \n\r");
+//    UART_PRINT("Device is configured in default state \n\r");
 
     CLR_STATUS_BIT_ALL(g_ulStatus);
 
@@ -654,14 +654,14 @@ int connectToAccessPoint() {
     // Assumption is that the device is configured in station mode already
     // and it is in its default state
     //
-    UART_PRINT("Opening sl_start\n\r");
+//    UART_PRINT("Opening sl_start\n\r");
     lRetVal = sl_Start(0, 0, 0);
     if (lRetVal < 0 || ROLE_STA != lRetVal) {
         UART_PRINT("Failed to start the device \n\r");
         return lRetVal;
     }
 
-    UART_PRINT("Device started as STATION \n\r");
+//    UART_PRINT("Device started as STATION \n\r");
 
     //
     //Connecting to WLAN AP
@@ -673,6 +673,6 @@ int connectToAccessPoint() {
         return lRetVal;
     }
 
-    UART_PRINT("Connection established w/ AP and IP is aquired \n\r");
+//    UART_PRINT("Connection established w/ AP and IP is aquired \n\r");
     return 0;
 }

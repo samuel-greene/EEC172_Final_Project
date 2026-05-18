@@ -81,7 +81,8 @@
 
 // Custom includes
 #include "utils/network_utils.h"
-
+#include "movement_detection.h"
+#include "i2c_if.h"
 
 //NEED TO UPDATE THIS FOR IT TO WORK!
 #define DATE                13    /* Current Date */
@@ -274,7 +275,6 @@ void main() {
 
     InitTerm();
     ClearTerm();
-    UART_PRINT("My terminal works!\n\r");
 
     // initialize global default app configuration
     g_app_config.host = SERVER_NAME;
@@ -288,22 +288,31 @@ void main() {
         UART_PRINT("Unable to set time in the device");
         LOOP_FOREVER();
     }
-    UART_PRINT("set_time\n\r");
 
-    read_uart_message(message, sizeof(message));
-    UART_PRINT("Message to send: %s\n\r", message);
+    int ARMED = 1;
 
-    //Connect to the website with TLS encryption
-    lRetVal = tls_connect();
-    UART_PRINT("connected_to_tls\n\r");
-    if(lRetVal < 0) {
-        ERR_PRINT(lRetVal);
+    UART_PRINT("Before armed loop\n\r");
+    I2C_IF_Open(I2C_MASTER_MODE_FST);
+
+    while (ARMED) {
+        UART_PRINT("inside armed loop\n\r");
+
+        if (theft_detected()) {
+            //Connect to AWS with TLS encryption
+            lRetVal = tls_connect();
+            if(lRetVal < 0) {
+                ERR_PRINT(lRetVal);
+            }
+            http_post(lRetVal, "Theft detected!!");
+
+            sl_Close(lRetVal);
+            sl_Stop(SL_STOP_TIMEOUT);
+        }
     }
-    UART_PRINT("posting\n\r");
-    http_post(lRetVal, message);
 
-    sl_Close(lRetVal);
-    sl_Stop(SL_STOP_TIMEOUT);
+//    read_uart_message(message, sizeof(message));
+//    UART_PRINT("Message to send: %s\n\r", message);
+
     LOOP_FOREVER();
 }
 //*****************************************************************************
@@ -361,9 +370,6 @@ static int http_post(int iTLSSockID, const char *message){
 
     strcpy(pcBufHeaders, dataBuff);
     pcBufHeaders += strlen(dataBuff);
-
-    UART_PRINT(acSendBuff);
-
 
     //
     // Send the packet to the server */
