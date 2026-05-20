@@ -67,6 +67,7 @@
 #include "hw_ints.h"
 #include "hw_memmap.h"
 #include "rom.h"
+#include "gpio.h"
 #include "rom_map.h"
 #include "interrupt.h"
 #include "prcm.h"
@@ -85,11 +86,11 @@
 #include "i2c_if.h"
 
 //NEED TO UPDATE THIS FOR IT TO WORK!
-#define DATE                13    /* Current Date */
+#define DATE                20    /* Current Date */
 #define MONTH               5     /* Month 1-12 */
 #define YEAR                2026  /* Current year */
-#define HOUR                10    /* Time - hours */
-#define MINUTE              55    /* Time - minutes */
+#define HOUR                9    /* Time - hours */
+#define MINUTE              35    /* Time - minutes */
 #define SECOND              00     /* Time - seconds */
 
 
@@ -110,7 +111,11 @@
 #define MAX_ESCAPED_LEN      240
 
 
+#define SW2_GPIO_BASE  GPIOA2_BASE
+#define SW2_GPIO_PIN   0x40
 
+#define SW3_GPIO_BASE  GPIOA3_BASE
+#define SW3_GPIO_PIN   0x10
 
 //*****************************************************************************
 //                 GLOBAL VARIABLES -- Start
@@ -168,8 +173,28 @@ static void BoardInit(void) {
     PRCMCC3200MCUInit();
 }
 
+static unsigned char g_sw2IdleLevel = 0;
+static unsigned char g_sw3IdleLevel = 0;
 
+static unsigned char ReadSW2Raw(void)
+{
+    return (GPIOPinRead(SW2_GPIO_BASE, SW2_GPIO_PIN) != 0) ? 1 : 0;
+}
+//
+//static unsigned char ReadSW3Raw(void)
+//{
+//    return (MAP_GPIOPinRead(SW3_GPIO_BASE, SW3_GPIO_PIN) != 0) ? 1 : 0;
+//}
 
+static int IsSW2Pressed(void)
+{
+    return (ReadSW2Raw() != g_sw2IdleLevel);
+}
+
+//static int IsSW3Pressed(void)
+//{
+//    return (ReadSW3Raw() != g_sw3IdleLevel);
+//}
 
 //*****************************************************************************
 //
@@ -265,7 +290,6 @@ static void json_escape(const char *src, char *dst, int maxLen) {
 //*****************************************************************************
 void main() {
     long lRetVal = -1;
-    char message[MAX_MESSAGE_LEN];
     //
     // Initialize board configuration
     //
@@ -289,29 +313,57 @@ void main() {
         LOOP_FOREVER();
     }
 
-    int ARMED = 1;
+    int ARMED = 0;
 
     UART_PRINT("Before armed loop\n\r");
     I2C_IF_Open(I2C_MASTER_MODE_FST);
 
-    while (ARMED) {
-        UART_PRINT("inside armed loop\n\r");
+    unsigned char ucDevAddr, ucRegOffset, ucRdLen;
+    ucDevAddr = 0x18;
+    ucRegOffset = 0x2;
+    ucRdLen = 6;
+    unsigned char aucRdDataBuf[256];
 
-        if (theft_detected()) {
-            //Connect to AWS with TLS encryption
-            lRetVal = tls_connect();
-            if(lRetVal < 0) {
-                ERR_PRINT(lRetVal);
+    int x;
+    int y;
+    int z;
+
+    while (true) {
+        I2C_IF_Write(ucDevAddr, &ucRegOffset, 1, 0);
+        I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen);
+        x = (signed char)aucRdDataBuf[1];
+        y = (signed char)aucRdDataBuf[3];
+        z = (signed char)aucRdDataBuf[5];
+
+        if (IsSW2Pressed()) { // button pressed
+            ARMED = true;
+            int safe_value = z;
+
+            while (ARMED) {
+                I2C_IF_Write(ucDevAddr, &ucRegOffset, 1, 0);
+                I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen);
+                x = (signed char)aucRdDataBuf[1];
+                y = (signed char)aucRdDataBuf[3];
+                z = (signed char)aucRdDataBuf[5];
+
+                if (theft_detected(z, safe_value)) {
+                    UART_PRINT("OH SHIT\n\r");
+                    //Connect to AWS with TLS encryption
+                    lRetVal = tls_connect();
+                    if(lRetVal < 0) {
+                        ERR_PRINT(lRetVal);
+                    }
+                    http_post(lRetVal, "Theft detected!!");
+
+                    sl_Close(lRetVal);
+                    sl_Stop(SL_STOP_TIMEOUT);
+                }
+                MAP_UtilsDelay(2000000);
             }
-            http_post(lRetVal, "Theft detected!!");
-
-            sl_Close(lRetVal);
-            sl_Stop(SL_STOP_TIMEOUT);
         }
-    }
 
-//    read_uart_message(message, sizeof(message));
-//    UART_PRINT("Message to send: %s\n\r", message);
+        MAP_UtilsDelay(800000);
+    }
 
     LOOP_FOREVER();
 }

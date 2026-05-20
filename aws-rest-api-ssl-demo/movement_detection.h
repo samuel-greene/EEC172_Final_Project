@@ -9,7 +9,7 @@
 #define MOVEMENT_DETECTION_H_
 
 
-int theft_detected();
+int theft_detected(int z, int safe_value);
 
 
 #endif /* MOVEMENT_DETECTION_H_ */

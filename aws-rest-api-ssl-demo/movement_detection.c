@@ -27,19 +27,10 @@
 #include "movement_detection.h"
 #include "i2c_if.h"
 
-int theft_detected() {
-    unsigned char ucDevAddr, ucRegOffset, ucRdLen;
-    ucDevAddr = 0x18;
-    ucRegOffset = 0x2;
-    ucRdLen = 6;
-    unsigned char aucRdDataBuf[256];
-    I2C_IF_Write(ucDevAddr, &ucRegOffset, 1, 0);
-    I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen);
-    int x = (signed char)aucRdDataBuf[1];
-    int y = (signed char)aucRdDataBuf[3];
-    int z = (signed char)aucRdDataBuf[5];
+int theft_detected(int z, int safe_value) {
+    UART_PRINT("Safe Value: %d, Current Value: %d\n\r", safe_value, z);
 
-    UART_PRINT("X: %d; Y: %d, Z: %d\n\r", x, y, z);
-
-    return 0;
+    if (z > (safe_value + 10) || z < (safe_value - 10)) {
+        return 1;
+    } else return 0;
 }
