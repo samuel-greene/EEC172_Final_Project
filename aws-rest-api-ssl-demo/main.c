@@ -1,62 +1,3 @@
-//*****************************************************************************
-//
-// Copyright (C) 2014 Texas Instruments Incorporated - http://www.ti.com/ 
-// 
-// 
-//  Redistribution and use in source and binary forms, with or without 
-//  modification, are permitted provided that the following conditions 
-//  are met:
-//
-//    Redistributions of source code must retain the above copyright 
-//    notice, this list of conditions and the following disclaimer.
-//
-//    Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the 
-//    documentation and/or other materials provided with the   
-//    distribution. 
-//
-//    Neither the name of Texas Instruments Incorporated nor the names of
-//    its contributors may be used to endorse or promote products derived
-//    from this software without specific prior written permission.
-//
-//  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS 
-//  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT 
-//  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-//  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT 
-//  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-//  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT 
-//  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-//  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-//  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT 
-//  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE 
-//  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
-//
-//*****************************************************************************
-
-
-//*****************************************************************************
-//
-// Application Name     -   SSL Demo
-// Application Overview -   This is a sample application demonstrating the
-//                          use of secure sockets on a CC3200 device.The
-//                          application connects to an AP and
-//                          tries to establish a secure connection to the
-//                          Google server.
-// Application Details  -
-// docs\examples\CC32xx_SSL_Demo_Application.pdf
-// or
-// http://processors.wiki.ti.com/index.php/CC32xx_SSL_Demo_Application
-//
-//*****************************************************************************
-
-
-//*****************************************************************************
-//
-//! \addtogroup ssl
-//! @{
-//
-//*****************************************************************************
-
 #include <stdio.h>
 
 // Simplelink includes
@@ -111,11 +52,8 @@
 #define MAX_ESCAPED_LEN      240
 
 
-#define SW2_GPIO_BASE  GPIOA2_BASE
-#define SW2_GPIO_PIN   0x40
-
-#define SW3_GPIO_BASE  GPIOA3_BASE
-#define SW3_GPIO_PIN   0x10
+#define SW2_GPIO_BASE  GPIOA1_BASE
+#define SW2_GPIO_PIN   0x4
 
 //*****************************************************************************
 //                 GLOBAL VARIABLES -- Start
@@ -138,7 +76,6 @@ extern uVectorEntry __vector_table;
 //****************************************************************************
 static int set_time();
 static void BoardInit(void);
-static void read_uart_message(char *msg, int maxLen);
 static void json_escape(const char *src, char *dst, int maxLen);
 static int http_post(int, const char *);
 
@@ -174,28 +111,15 @@ static void BoardInit(void) {
 }
 
 static unsigned char g_sw2IdleLevel = 0;
-static unsigned char g_sw3IdleLevel = 0;
 
 static unsigned char ReadSW2Raw(void)
 {
     return (GPIOPinRead(SW2_GPIO_BASE, SW2_GPIO_PIN) != 0) ? 1 : 0;
 }
-//
-//static unsigned char ReadSW3Raw(void)
-//{
-//    return (MAP_GPIOPinRead(SW3_GPIO_BASE, SW3_GPIO_PIN) != 0) ? 1 : 0;
-//}
-
 static int IsSW2Pressed(void)
 {
     return (ReadSW2Raw() != g_sw2IdleLevel);
 }
-
-//static int IsSW3Pressed(void)
-//{
-//    return (ReadSW3Raw() != g_sw3IdleLevel);
-//}
-
 //*****************************************************************************
 //
 //! This function updates the date and time of CC3200.
@@ -225,40 +149,6 @@ static int set_time() {
     return SUCCESS;
 }
 
-static void read_uart_message(char *msg, int maxLen) {
-    int index = 0;
-    int ch;
-
-    UART_PRINT("\n\rType your email message, then press ENTER:\n\r> ");
-
-    while(1) {
-        ch = MAP_UARTCharGet(UARTA0_BASE);
-
-        if(ch == '\r' || ch == '\n') {
-            msg[index] = '\0';
-            UART_PRINT("\n\r");
-            break;
-        }
-
-        if((ch == 8 || ch == 127) && index > 0) {
-            index--;
-            msg[index] = '\0';
-            MAP_UARTCharPut(UARTA0_BASE, '\b');
-            MAP_UARTCharPut(UARTA0_BASE, ' ');
-            MAP_UARTCharPut(UARTA0_BASE, '\b');
-        }
-        else if(ch >= 32 && ch <= 126 && index < (maxLen - 1)) {
-            msg[index] = (char)ch;
-            index++;
-            MAP_UARTCharPut(UARTA0_BASE, ch);
-        }
-    }
-
-    if(index == 0) {
-        strcpy(msg, "Empty message from CC3200");
-    }
-}
-
 static void json_escape(const char *src, char *dst, int maxLen) {
     int i = 0;
     int j = 0;
@@ -278,7 +168,6 @@ static void json_escape(const char *src, char *dst, int maxLen) {
 }
 
 
-
 //*****************************************************************************
 //
 //! Main 
@@ -290,6 +179,9 @@ static void json_escape(const char *src, char *dst, int maxLen) {
 //*****************************************************************************
 void main() {
     long lRetVal = -1;
+
+    int DEBUG_MODE = 1;
+    int ARMED = 0;
     //
     // Initialize board configuration
     //
@@ -300,20 +192,22 @@ void main() {
     InitTerm();
     ClearTerm();
 
+
+
     // initialize global default app configuration
     g_app_config.host = SERVER_NAME;
     g_app_config.port = GOOGLE_DST_PORT;
 
-    //Connect the CC3200 to the local access point
-    lRetVal = connectToAccessPoint();
-    //Set time so that encryption can be used
-    lRetVal = set_time();
-    if(lRetVal < 0) {
-        UART_PRINT("Unable to set time in the device");
-        LOOP_FOREVER();
+    if (!DEBUG_MODE) {
+        //Connect the CC3200 to the local access point
+        lRetVal = connectToAccessPoint();
+        //Set time so that encryption can be used
+        lRetVal = set_time();
+        if(lRetVal < 0) {
+            UART_PRINT("Unable to set time in the device");
+            LOOP_FOREVER();
+        }
     }
-
-    int ARMED = 0;
 
     UART_PRINT("Before armed loop\n\r");
     I2C_IF_Open(I2C_MASTER_MODE_FST);
@@ -329,13 +223,17 @@ void main() {
     int z;
 
     while (true) {
+        unsigned char button = MAP_GPIOPinRead(SW2_GPIO_BASE, SW2_GPIO_PIN);
+        UART_PRINT("...\n\r");
+        UART_PRINT("%d\n\r");
+
         I2C_IF_Write(ucDevAddr, &ucRegOffset, 1, 0);
         I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen);
         x = (signed char)aucRdDataBuf[1];
         y = (signed char)aucRdDataBuf[3];
         z = (signed char)aucRdDataBuf[5];
 
-        if (IsSW2Pressed()) { // button pressed
+        if (button == 9) { // button pressed
             ARMED = true;
             int safe_value = z;
 
@@ -349,23 +247,22 @@ void main() {
                 if (theft_detected(z, safe_value)) {
                     UART_PRINT("OH SHIT\n\r");
                     //Connect to AWS with TLS encryption
-                    lRetVal = tls_connect();
-                    if(lRetVal < 0) {
-                        ERR_PRINT(lRetVal);
-                    }
-                    http_post(lRetVal, "Theft detected!!");
+                    if (!DEBUG_MODE) {
+                        lRetVal = tls_connect();
+                        if(lRetVal < 0) {
+                            ERR_PRINT(lRetVal);
+                        }
+                        http_post(lRetVal, "Theft detected!!");
 
-                    sl_Close(lRetVal);
-                    sl_Stop(SL_STOP_TIMEOUT);
+                        sl_Close(lRetVal);
+                        sl_Stop(SL_STOP_TIMEOUT);
+                    }
                 }
                 MAP_UtilsDelay(2000000);
             }
         }
-
         MAP_UtilsDelay(800000);
     }
-
-    LOOP_FOREVER();
 }
 //*****************************************************************************
 //
