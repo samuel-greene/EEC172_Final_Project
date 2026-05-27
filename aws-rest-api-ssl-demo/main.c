@@ -53,7 +53,7 @@
 
 
 #define SW2_GPIO_BASE  GPIOA1_BASE
-#define SW2_GPIO_PIN   0x4
+#define SW2_GPIO_PIN   0x20
 
 //*****************************************************************************
 //                 GLOBAL VARIABLES -- Start
@@ -112,13 +112,9 @@ static void BoardInit(void) {
 
 static unsigned char g_sw2IdleLevel = 0;
 
-static unsigned char ReadSW2Raw(void)
+static int IsSW3Pressed(void)
 {
-    return (GPIOPinRead(SW2_GPIO_BASE, SW2_GPIO_PIN) != 0) ? 1 : 0;
-}
-static int IsSW2Pressed(void)
-{
-    return (ReadSW2Raw() != g_sw2IdleLevel);
+    return GPIOPinRead(SW2_GPIO_BASE, SW2_GPIO_PIN) != g_sw2IdleLevel;
 }
 //*****************************************************************************
 //
@@ -193,7 +189,6 @@ void main() {
     ClearTerm();
 
 
-
     // initialize global default app configuration
     g_app_config.host = SERVER_NAME;
     g_app_config.port = GOOGLE_DST_PORT;
@@ -209,7 +204,6 @@ void main() {
         }
     }
 
-    UART_PRINT("Before armed loop\n\r");
     I2C_IF_Open(I2C_MASTER_MODE_FST);
 
     unsigned char ucDevAddr, ucRegOffset, ucRdLen;
@@ -217,35 +211,39 @@ void main() {
     ucRegOffset = 0x2;
     ucRdLen = 6;
     unsigned char aucRdDataBuf[256];
-
     int x;
     int y;
     int z;
 
+    UART_PRINT("Ready to be armed...\n\r");
+
     while (true) {
-        unsigned char button = MAP_GPIOPinRead(SW2_GPIO_BASE, SW2_GPIO_PIN);
-        UART_PRINT("...\n\r");
-        UART_PRINT("%d\n\r");
+        if (IsSW3Pressed()) { // button pressed
+            UART_PRINT("Arming in 3...\n\r");
+            MAP_UtilsDelay(10000000); // one second
+            UART_PRINT("Arming in 2...\n\r");
+            MAP_UtilsDelay(10000000);
+            UART_PRINT("Arming in 1...\n\r");
+            MAP_UtilsDelay(10000000);
 
-        I2C_IF_Write(ucDevAddr, &ucRegOffset, 1, 0);
-        I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen);
-        x = (signed char)aucRdDataBuf[1];
-        y = (signed char)aucRdDataBuf[3];
-        z = (signed char)aucRdDataBuf[5];
-
-        if (button == 9) { // button pressed
+            I2C_IF_Write(ucDevAddr, &ucRegOffset, 1, 0);
+            I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen);
+            z = (signed char)aucRdDataBuf[5];
             ARMED = true;
             int safe_value = z;
+            UART_PRINT("ARMED\n\r");
 
             while (ARMED) {
                 I2C_IF_Write(ucDevAddr, &ucRegOffset, 1, 0);
                 I2C_IF_Read(ucDevAddr, &aucRdDataBuf[0], ucRdLen);
-                x = (signed char)aucRdDataBuf[1];
-                y = (signed char)aucRdDataBuf[3];
+//                x = (signed char)aucRdDataBuf[1];
+//                y = (signed char)aucRdDataBuf[3];
                 z = (signed char)aucRdDataBuf[5];
 
                 if (theft_detected(z, safe_value)) {
-                    UART_PRINT("OH SHIT\n\r");
+                    UART_PRINT("Detected Tampering\n\r");
+                    UART_PRINT("Device no longer ARMED\n\r");
+                    ARMED = 0;
                     //Connect to AWS with TLS encryption
                     if (!DEBUG_MODE) {
                         lRetVal = tls_connect();

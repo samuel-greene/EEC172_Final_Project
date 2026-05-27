@@ -63,13 +63,12 @@ PinMuxConfig(void)
     MAP_PRCMPeripheralClkEnable(PRCM_GPIOA3, PRCM_RUN_MODE_CLK);
     MAP_PRCMPeripheralClkEnable(PRCM_UARTA0, PRCM_RUN_MODE_CLK);
 
-
     //
-    // Configure PIN_01 for GPIO Input
+    // Configure PIN_15 for GPIO Output of SW3
     //
-    PinTypeGPIO(PIN_01, PIN_MODE_0, false);
-    GPIODirModeSet(GPIOA1_BASE, 0x4, GPIO_DIR_MODE_IN);
-
+    MAP_PinTypeGPIO(PIN_04, PIN_MODE_0, false);
+    MAP_GPIODirModeSet(GPIOA1_BASE, 0x20, GPIO_DIR_MODE_IN);
+    MAP_PinConfigSet(PIN_04, PIN_STRENGTH_2MA, PIN_TYPE_STD_PU);
 
     //
     // Configure PIN_55 for UART0 UART0_TX
@@ -86,14 +85,6 @@ PinMuxConfig(void)
     // Configure PIN_1 and 2 for I2C Accelerometer Connection
     //
     MAP_PinTypeI2C(PIN_01, PIN_MODE_1);
-
     MAP_PinTypeI2C(PIN_02, PIN_MODE_1);
-
-    MAP_PinTypeGPIO(PIN_15, PIN_MODE_0, false);
-    MAP_GPIODirModeSet(GPIOA2_BASE, 0x40, GPIO_DIR_MODE_IN);
-
-    MAP_PinTypeGPIO(PIN_18, PIN_MODE_0, false);
-    MAP_GPIODirModeSet(GPIOA3_BASE, 0x10, GPIO_DIR_MODE_OUT);
-
 
 }
